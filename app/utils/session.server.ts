@@ -1,6 +1,10 @@
 import { db } from '~/utils/db.server';
 import bcrypt from 'bcryptjs';
+import { createCookieSessionStorage, redirect } from '@remix-run/node';
 
+//* =============================================
+//*                   LOGIN                     =
+//*==============================================
 type LoginForm = {
   username: string;
   password: string;
@@ -20,4 +24,37 @@ export async function login({ username, password }: LoginForm) {
   if (!isCorrectPassword) return null;
 
   return { id: user.id, username };
+}
+
+//* =============================================
+//*                 USER SESSION                =
+//*==============================================
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  throw new Error('SESSION_SECRET must be set');
+}
+
+const sessionStorage = createCookieSessionStorage({
+  cookie: {
+    name: 'RJ_session',
+    // normally you want this to be `secure: true`
+    // but that doesn't work on localhost for Safari
+    // https://web.dev/when-to-use-local-https/
+    secure: process.env.NODE_ENV === 'production',
+    secrets: [sessionSecret],
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+    httpOnly: true,
+  },
+});
+
+export async function createUserSession(userId: string, redirectTo: string) {
+  const session = await sessionStorage.getSession();
+  session.set('userId', userId);
+  return redirect(redirectTo, {
+    headers: {
+      'Set-Cookie': await sessionStorage.commitSession(session),
+    },
+  });
 }
