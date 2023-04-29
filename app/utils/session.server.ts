@@ -27,6 +27,25 @@ export async function login({ username, password }: LoginForm) {
 }
 
 //* =============================================
+//*                 REGISTER                    =
+//*==============================================
+type RegisterForm = {
+  username: string;
+  password: string;
+};
+
+export async function register({ username, password }: RegisterForm) {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await db.user.create({
+    data: {
+      username,
+      passwordHash,
+    },
+  });
+  return { id: user.id, username };
+}
+
+//* =============================================
 //*                 USER SESSION                =
 //*==============================================
 const sessionSecret = process.env.SESSION_SECRET;

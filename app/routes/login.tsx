@@ -4,7 +4,7 @@ import { Link, useActionData, useSearchParams } from '@remix-run/react';
 import stylesUrl from '~/styles/login.css';
 import { db } from '~/utils/db.server';
 import { badRequest } from '~/utils/request.server';
-import { createUserSession, login } from '~/utils/session.server';
+import { createUserSession, login, register } from '~/utils/session.server';
 
 export const links: LinksFunction = () => [
   { rel: 'stylesheet', href: stylesUrl },
@@ -67,7 +67,6 @@ export const action = async ({ request }: ActionArgs) => {
     case 'login': {
       // login to get the user
       const user = await login({ username, password });
-      // console.log({ user });
       // if there's no user, return the fields and a formError
       if (!user) {
         return badRequest({
@@ -76,7 +75,7 @@ export const action = async ({ request }: ActionArgs) => {
           formError: 'Username/Password combination is incorrect',
         });
       }
-      // if there is a user, create their session and redirect to /jokes
+      // if there is a user, create their session and redirect
       return createUserSession(user.id, redirectTo);
     }
     case 'register': {
@@ -91,12 +90,16 @@ export const action = async ({ request }: ActionArgs) => {
         });
       }
       // create the user
-      // create their session and redirect to /jokes
-      return badRequest({
-        fieldErrors: null,
-        fields,
-        formError: 'Not implemented',
-      });
+      const user = await register({ username, password });
+      if (!user) {
+        return badRequest({
+          fieldErrors: null,
+          fields,
+          formError: 'Something went wrong creating your account',
+        });
+      }
+      // create their session and redirect
+      return createUserSession(user.id, redirectTo);
     }
     default: {
       return badRequest({
