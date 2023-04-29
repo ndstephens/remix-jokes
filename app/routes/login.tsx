@@ -23,7 +23,7 @@ function validatePassword(password: unknown) {
 }
 
 function validateUrl(url: unknown) {
-  let urls = ['/jokes', '/', 'https://remix.run'];
+  let urls = ['/jokes', '/jokes/new', '/', 'https://remix.run'];
   if (typeof url === 'string' && urls.includes(url)) {
     return url;
   }
