@@ -1,10 +1,24 @@
-import type { ActionArgs } from '@remix-run/node';
+import type { ActionArgs, LoaderArgs } from '@remix-run/node';
+import { json } from '@remix-run/node';
 import { redirect } from '@remix-run/node';
-import { useActionData } from '@remix-run/react';
+import {
+  useActionData,
+  isRouteErrorResponse,
+  useRouteError,
+  Link,
+} from '@remix-run/react';
 
 import { db } from '~/utils/db.server';
 import { badRequest } from '~/utils/request.server';
-import { requireUserId } from '~/utils/session.server';
+import { getUserId, requireUserId } from '~/utils/session.server';
+
+export const loader = async ({ request }: LoaderArgs) => {
+  const userId = await getUserId(request);
+  if (!userId) {
+    throw new Response('Unauthorized', { status: 401 });
+  }
+  return json({});
+};
 
 function validateJokeName(name: string) {
   if (name.length < 3) {
@@ -121,4 +135,27 @@ export default function NewJokeRoute() {
       </form>
     </div>
   );
+}
+
+export function ErrorBoundary() {
+  let error = useRouteError();
+
+  if (isRouteErrorResponse(error)) {
+    if (error.status === 401) {
+      return (
+        <div className="error-container">
+          <p>You must be logged in to create a joke.</p>
+          <Link to="/login">Login</Link>
+        </div>
+      );
+    }
+  } else if (error instanceof Error) {
+    return (
+      <div className="error-container">
+        Something unexpected went wrong. Sorry about that.
+      </div>
+    );
+  } else {
+    return <h1>Unknown Error</h1>;
+  }
 }
