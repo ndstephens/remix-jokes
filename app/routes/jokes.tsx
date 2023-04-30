@@ -2,26 +2,29 @@ import type { LinksFunction, LoaderArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { Form, Link, Outlet, useLoaderData } from '@remix-run/react';
 
+import stylesUrl from '~/styles/jokes.css';
 import { db } from '~/utils/db.server';
 import { getUser } from '~/utils/session.server';
-import stylesUrl from '~/styles/jokes.css';
 
-export const links: LinksFunction = () => {
-  return [{ rel: 'stylesheet', href: stylesUrl }];
-};
+export const links: LinksFunction = () => [
+  { rel: 'stylesheet', href: stylesUrl },
+];
 
 export const loader = async ({ request }: LoaderArgs) => {
-  const jokeListItems = await db.joke.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, name: true },
-  });
   const user = await getUser(request);
 
-  return json({
-    jokeListItems,
-    user,
-  });
+  // In the official deployed version of the app, we don't want to deploy
+  // a site with none-moderated content, so we only show users their own jokes
+  const jokeListItems = user
+    ? await db.joke.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, name: true },
+        take: 5,
+        where: { jokesterId: user.id },
+      })
+    : [];
+
+  return json({ jokeListItems, user });
 };
 
 export default function JokesRoute() {
@@ -57,13 +60,17 @@ export default function JokesRoute() {
             <Link to=".">Get a random joke</Link>
             <p>Here are a few more jokes to check out:</p>
             <ul>
-              {data.jokeListItems.map((joke) => (
-                <li key={joke.id}>
-                  <Link to={joke.id} prefetch="intent">
-                    {joke.name}
-                  </Link>
-                </li>
-              ))}
+              {data.jokeListItems.length > 0 ? (
+                data.jokeListItems.map(({ id, name }) => (
+                  <li key={id}>
+                    <Link prefetch="intent" to={id}>
+                      {name}
+                    </Link>
+                  </li>
+                ))
+              ) : (
+                <li>No jokes found</li>
+              )}
             </ul>
             <Link to="new" className="button">
               Add your own

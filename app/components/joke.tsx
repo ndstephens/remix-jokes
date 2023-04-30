@@ -14,7 +14,7 @@ export function JokeDisplay({
     <div>
       <p>Here's your hilarious joke:</p>
       <p>{joke.content}</p>
-      <Link to=".">{joke.name} Permalink</Link>
+      <Link to=".">"{joke.name}" Permalink</Link>
       {isOwner ? (
         <Form method="post">
           <button

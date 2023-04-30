@@ -16,6 +16,7 @@ export const links: LinksFunction = () => [
 
 export const meta: V2_MetaFunction = () => {
   const description = 'Login to submit your own jokes to Remix Jokes!';
+
   return [
     { name: 'description', content: description },
     { name: 'twitter:description', content: description },
@@ -23,21 +24,21 @@ export const meta: V2_MetaFunction = () => {
   ];
 };
 
-function validateUsername(username: unknown) {
-  if (typeof username !== 'string' || username.length < 3) {
-    return `Usernames must be at least 3 characters long`;
+function validateUsername(username: string) {
+  if (username.length < 3) {
+    return 'Usernames must be at least 3 characters long';
   }
 }
 
-function validatePassword(password: unknown) {
-  if (typeof password !== 'string' || password.length < 6) {
-    return `Passwords must be at least 6 characters long`;
+function validatePassword(password: string) {
+  if (password.length < 6) {
+    return 'Passwords must be at least 6 characters long';
   }
 }
 
-function validateUrl(url: unknown) {
-  let urls = ['/jokes', '/jokes/new', '/', 'https://remix.run'];
-  if (typeof url === 'string' && urls.includes(url)) {
+function validateUrl(url: string) {
+  let urls = ['/jokes', '/', 'https://remix.run'];
+  if (urls.includes(url)) {
     return url;
   }
   return '/jokes';
@@ -46,27 +47,27 @@ function validateUrl(url: unknown) {
 export const action = async ({ request }: ActionArgs) => {
   const form = await request.formData();
   const loginType = form.get('loginType');
-  const username = form.get('username');
   const password = form.get('password');
-  const redirectTo = validateUrl(form.get('redirectTo') || '/jokes');
-
+  const username = form.get('username');
+  const redirectTo = validateUrl(
+    (form.get('redirectTo') as string) || '/jokes'
+  );
   if (
     typeof loginType !== 'string' ||
-    typeof username !== 'string' ||
     typeof password !== 'string' ||
-    typeof redirectTo !== 'string'
+    typeof username !== 'string'
   ) {
     return badRequest({
       fieldErrors: null,
       fields: null,
-      formError: `Form not submitted correctly.`,
+      formError: 'Form not submitted correctly.',
     });
   }
 
-  const fields = { loginType, username, password };
+  const fields = { loginType, password, username };
   const fieldErrors = {
-    username: validateUsername(username),
     password: validatePassword(password),
+    username: validateUsername(username),
   };
   if (Object.values(fieldErrors).some(Boolean)) {
     return badRequest({
@@ -78,9 +79,8 @@ export const action = async ({ request }: ActionArgs) => {
 
   switch (loginType) {
     case 'login': {
-      // login to get the user
       const user = await login({ username, password });
-      // if there's no user, return the fields and a formError
+      console.log({ user });
       if (!user) {
         return badRequest({
           fieldErrors: null,
@@ -88,13 +88,10 @@ export const action = async ({ request }: ActionArgs) => {
           formError: 'Username/Password combination is incorrect',
         });
       }
-      // if there is a user, create their session and redirect
       return createUserSession(user.id, redirectTo);
     }
     case 'register': {
-      const userExists = await db.user.findFirst({
-        where: { username },
-      });
+      const userExists = await db.user.findFirst({ where: { username } });
       if (userExists) {
         return badRequest({
           fieldErrors: null,
@@ -102,23 +99,21 @@ export const action = async ({ request }: ActionArgs) => {
           formError: `User with username ${username} already exists`,
         });
       }
-      // create the user
       const user = await register({ username, password });
       if (!user) {
         return badRequest({
           fieldErrors: null,
           fields,
-          formError: 'Something went wrong creating your account',
+          formError: 'Something went wrong trying to create a new user.',
         });
       }
-      // create their session and redirect
       return createUserSession(user.id, redirectTo);
     }
     default: {
       return badRequest({
         fieldErrors: null,
         fields,
-        formError: `Login type invalid`,
+        formError: 'Login type invalid',
       });
     }
   }
@@ -127,7 +122,6 @@ export const action = async ({ request }: ActionArgs) => {
 export default function Login() {
   const actionData = useActionData<typeof action>();
   const [searchParams] = useSearchParams();
-
   return (
     <div className="container">
       <div className="content" data-light="">

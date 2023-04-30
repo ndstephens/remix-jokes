@@ -1,17 +1,15 @@
 import type { ActionArgs, LoaderArgs, V2_MetaFunction } from '@remix-run/node';
-import { redirect } from '@remix-run/node';
-import { json } from '@remix-run/node';
+import { json, redirect } from '@remix-run/node';
 import {
-  useLoaderData,
   isRouteErrorResponse,
-  useRouteError,
+  useLoaderData,
   useParams,
+  useRouteError,
 } from '@remix-run/react';
-import { JokeDisplay } from '~/components/joke';
 
+import { JokeDisplay } from '~/components/joke';
 import { db } from '~/utils/db.server';
-import { getUserId } from '~/utils/session.server';
-import { requireUserId } from '~/utils/session.server';
+import { getUserId, requireUserId } from '~/utils/session.server';
 
 export const meta: V2_MetaFunction<typeof loader> = ({ data }) => {
   const { description, title } = data
@@ -34,37 +32,31 @@ export const loader = async ({ params, request }: LoaderArgs) => {
     where: { id: params.jokeId },
   });
   if (!joke) {
-    throw new Response('What a joke! Not found.', {
-      status: 404,
-    });
+    throw new Response('What a joke! Not found.', { status: 404 });
   }
-  return json({ joke, isOwner: joke.jokesterId === userId });
+  return json({
+    isOwner: userId === joke.jokesterId,
+    joke,
+  });
 };
 
-export const action = async ({ request, params }: ActionArgs) => {
+export const action = async ({ params, request }: ActionArgs) => {
   const form = await request.formData();
   if (form.get('intent') !== 'delete') {
-    throw new Response(`The intent "${form.get('intent')}" is not supported`, {
+    throw new Response(`The intent ${form.get('intent')} is not supported`, {
       status: 400,
     });
   }
-  // get user id from session
   const userId = await requireUserId(request);
-  // get joke from db
   const joke = await db.joke.findUnique({
     where: { id: params.jokeId },
   });
-  // if no joke, return 404
   if (!joke) {
-    throw new Response('What a joke! Not found.', {
-      status: 404,
-    });
+    throw new Response("Can't delete what does not exist", { status: 404 });
   }
-  // if no user id or joke's jokesterId doesn't match user id, return 403
   if (joke.jokesterId !== userId) {
-    return new Response('That joke does not belong to you', { status: 403 });
+    throw new Response("Pssh, nice try. That's not your joke", { status: 403 });
   }
-  // otherwise, delete joke from db
   await db.joke.delete({ where: { id: params.jokeId } });
   return redirect('/jokes');
 };
@@ -77,40 +69,34 @@ export default function JokeRoute() {
 
 export function ErrorBoundary() {
   const { jokeId } = useParams();
-  let error = useRouteError();
+  const error = useRouteError();
+  console.error(error);
 
   if (isRouteErrorResponse(error)) {
-    switch (error.status) {
-      case 400: {
-        return (
-          <div className="error-container">
-            What you're trying to do is not allowed.
-          </div>
-        );
-      }
-      case 404: {
-        return (
-          <div className="error-container">Huh? What the heck is {jokeId}?</div>
-        );
-      }
-      case 403: {
-        return (
-          <div className="error-container">
-            Sorry, but {jokeId} is not your joke.
-          </div>
-        );
-      }
-      default: {
-        throw new Error(`Unhandled error: ${error.status}`);
-      }
+    if (error.status === 400) {
+      return (
+        <div className="error-container">
+          What you're trying to do is not allowed.
+        </div>
+      );
     }
-  } else if (error instanceof Error) {
-    return (
-      <div>
-        <div className="error-container">{`There was an error loading joke by the id ${jokeId}. Sorry.`}</div>
-      </div>
-    );
-  } else {
-    return <h1>Unknown Error</h1>;
+    if (error.status === 403) {
+      return (
+        <div className="error-container">
+          Sorry, but "{jokeId}" is not your joke.
+        </div>
+      );
+    }
+    if (error.status === 404) {
+      return (
+        <div className="error-container">Huh? What the heck is "{jokeId}"?</div>
+      );
+    }
   }
+
+  return (
+    <div className="error-container">
+      There was an error loading joke by the id ${jokeId}. Sorry.
+    </div>
+  );
 }

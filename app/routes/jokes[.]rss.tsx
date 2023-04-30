@@ -1,6 +1,7 @@
 import type { LoaderArgs } from '@remix-run/node';
 
 import { db } from '~/utils/db.server';
+import { getUserId } from '~/utils/session.server';
 
 function escapeCdata(s: string) {
   return s.replace(/\]\]>/g, ']]]]><![CDATA[>');
@@ -16,11 +17,18 @@ function escapeHtml(s: string) {
 }
 
 export const loader = async ({ request }: LoaderArgs) => {
-  const jokes = await db.joke.findMany({
-    take: 100,
-    orderBy: { createdAt: 'desc' },
-    include: { jokester: { select: { username: true } } },
-  });
+  const userId = await getUserId(request);
+
+  // In the official deployed version of the app, we don't want to deploy
+  // a site with none-moderated content, so we only show users their own jokes
+  const jokes = userId
+    ? await db.joke.findMany({
+        include: { jokester: { select: { username: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        where: { jokesterId: userId },
+      })
+    : [];
 
   const host =
     request.headers.get('X-Forwarded-Host') ?? request.headers.get('host');
