@@ -7,6 +7,7 @@ import {
   isRouteErrorResponse,
   useRouteError,
   useParams,
+  Form,
 } from '@remix-run/react';
 
 import { db } from '~/utils/db.server';
@@ -78,11 +79,11 @@ export default function JokeRoute() {
       <p>{data.joke.content}</p>
       <Link to=".">{data.joke.name} Permalink</Link>
       {data.isOwner ? (
-        <form method="post">
+        <Form method="post">
           <button className="button" name="intent" type="submit" value="delete">
             Delete
           </button>
-        </form>
+        </Form>
       ) : null}
     </div>
   );
